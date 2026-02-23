@@ -45,9 +45,9 @@ def main():
     
     download_pdf_test(url)
     get_pdf_info_test(excl)
-    write_to_excel_test([("dummy", "dummy", 1)], "Data\\test.xlsx")
-    excel_test([["dummy", float('nan'), "Failed"]], "Data\\test.xlsx")
-    excel_test([["dummy", "dummy", "Downloaded"]], "Data\\test.xlsx")
+    write_to_excel_test([("dummy", "dummy", "dummy", 1)], "Data\\test.xlsx")
+    excel_test([["dummy", float('nan'), None, "Failed"]], "Data\\test.xlsx")
+    excel_test([["dummy", "dummy", "dummy", "Downloaded"]], "Data\\test.xlsx")
 
 
 if __name__ == "__main__":
