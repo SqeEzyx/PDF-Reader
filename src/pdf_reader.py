@@ -36,25 +36,27 @@ def get_pdf_urls(path): #Function to read the Excel file and extract PDF URLs, l
 
     urls = [url for url in df["Pdf_URL"] if url is not None]
     urls = urls[:pdf_limiter]  # Limit the number of URLs to download
-    return urls
+    BRnums = [num for num in df["BRnum"] if num is not None]
+    BRNums = BRnums[:pdf_limiter]
+    return urls, BRNums
 
 def exist(path): #Function to check if a file exists at the given path
     return os.path.exists(path)
 
-def download_pdfs(urls): #Function to download multiple PDFs and return their paths and statuses
+def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return their paths and statuses
     data = []
     temp_data = []
-    for url in urls:
+    for url, BRNum in zip(urls, BRNums):
         if pd.isna(url) or url.find(".pdf") == -1:
             print(f"\nSkipping {url} as it does not contain a PDF link.")
-            temp_data.append([None, None, 0])
+            temp_data.append([BRNum, None, None, 0])
             continue
 
         name = url.split("/")[-1].split(".pdf")[0]
 
         if exist(f"Pdf\\{name}.pdf"): #Check if the PDF already exists to avoid redundant downloads
             print(f"already exists, skipping download.")
-            temp_data.append([url, f"Pdf\\{name}.pdf", 1])
+            temp_data.append([BRNum, url, f"Pdf\\{name}.pdf", 1])
             continue
         
         #Status Print
@@ -67,14 +69,14 @@ def download_pdfs(urls): #Function to download multiple PDFs and return their pa
         else:
             print(f"\nFailed to download")
 
-        temp_data.append([url,path,status])
+        temp_data.append([BRNum, url, path, status])
 
     data = temp_data.copy()
     for i, item in enumerate(temp_data):
-        if item[2] == 1:
-            data[i] = [item[0], item[1], "Downloaded"]
+        if item[3] == 1:
+            data[i] = [item[0], item[1], item[2], "Downloaded"]
         else:
-            data[i] = [item[0], None, "Failed"]
+            data[i] = [item[0], item[1], None, "Failed"]
 
     return data
 
@@ -96,9 +98,9 @@ def format_data(data,path): #Function to format the data for Excel output, repla
 def write_to_excel(data, path): #Function to write the download results to an Excel file
     if exist(path):
         total_data = format_data(data,path)
-        df = pd.DataFrame(total_data, columns=["URL", "Path", "Status"])
+        df = pd.DataFrame(total_data, columns=["BR_Num", "URL", "Path", "Status"])
     else:
-        df = pd.DataFrame(data, columns=["URL", "Path", "Status"])
+        df = pd.DataFrame(data, columns=["BR_Num", "URL", "Path", "Status"])
     
     df.to_excel(path, index=False)
 
@@ -109,8 +111,8 @@ def clear_pdfs(): #Function to clear the pdf folder for debugging purposes
 
 # MAIN
 def main():
-    urls = get_pdf_urls(excl_path)
-    data = download_pdfs(urls)
+    urls, BRNums = get_pdf_urls(excl_path)
+    data = download_pdfs(urls, BRNums)
     write_to_excel(data, data_path)
 
 
