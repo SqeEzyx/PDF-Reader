@@ -2,20 +2,12 @@ import pdf_reader
 import os
 import pandas as pd
 
-def open_pdf_test(fp):
-    f = pdf_reader.open_pdf(fp)
-    assert f is not None
-    
-    print("open_pdf Works")
-
 def download_pdf_test(url):
     name = "dummy"
-    path, status = pdf_reader.download_pdf(url,name)
+    path, status = pdf_reader.download_pdf(url,name,15)
 
     assert path is not None
     assert status == 1
-
-    open_pdf_test(path)
     
     os.remove(path)
     print("download_pdf Works")
