@@ -3,6 +3,7 @@ from urllib.request import urlopen
 import os
 import requests
 import pandas as pd
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -12,6 +13,7 @@ excl_path = os.path.join(os.getcwd(), "Data", "GRI_2017_2020.xlsx")
 data_path = os.path.join(os.getcwd(), "Data", "downloaded_pdfs.xlsx")
 pdf_limiter = 0
 threads = 0
+log = []
 
 ''' FUNCTIONS '''
 def open_pdf(path): #Function to open a PDF file and return its content as bytes
@@ -42,6 +44,7 @@ def exist(path): #Function to check if a file exists at the given path
 '''DOWNLOAD'''
 
 def download_pdf(url,name,timeout): #Function to download a PDF from a URL and save it with the given name, returns the path and status
+    global log
     try:
         # Stream the response from requests and write in chunks to avoid blocking on urlopen
         # and to honor the timeout. Use a temporary file and atomic replace to avoid
@@ -59,6 +62,27 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
                 if chunk:
                     f.write(chunk)
 
+        # Check temp file for HTML message markers (some servers return HTML pages)
+        try:
+            with open(temp_path, "rb") as tf:
+                content = tf.read()
+
+            text = content.decode("utf-8", errors="ignore")
+            m = re.search(r'<!--Message-->([^<]*)', text, re.S)
+            if m:
+                msg = m.group(1).strip()
+                existing = log.get(name)
+                entry = f"HTML message: {msg}"
+                if existing:
+                    #print(f"Warning: {name} already has log entry. Appending new message.")
+                    log.append(f"{name}: {existing} | {entry}")
+                else:
+                    #print(f"Logging message for {name}: {entry}")
+                    log.append(f"{name}: {entry}")
+        except Exception:
+            # don't fail download on message-extraction errors
+            pass
+
         # atomic replace
         try:
             os.replace(temp_path, final_path)
@@ -68,8 +92,9 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
         path = final_path
         
-        if os.path.getsize(path) < 1000000:  # Check if the file is too small to be a valid PDF (heuristic) - 1 MB
-            #print(path, " size: ", os.path.getsize(path), " - likely invalid PDF, deleting")
+        if os.path.getsize(path) < 200000:  # Check if the file is too small to be a valid PDF (heuristic) - 200 KB
+            #log.append(f"Error download {name}: file size: {os.path.getsize(path)} bytes")
+
             os.remove(path)
             os.remove(temp_path)  # Ensure temp file is also removed if it exists
             return None, 0
@@ -78,6 +103,10 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
     
     except Exception as e:
        #print(f"\nError downloading {name}: {e}")
+        os.remove(temp_path)
+
+        log.append(f"Error downloading {name}: {e}")
+
         return None, 0
 
 def download_single_pdf(url, BRNum):
@@ -141,8 +170,7 @@ def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return 
             executor.submit(download_single_pdf, url, BRNum): (url, BRNum) 
             for url, BRNum in zip(urls, BRNums)
         }
-        executor.shutdown(wait=False,cancel_futures=False)  # Don't wait for all threads to finish here, we'll handle it in the loop below
-
+        
         data = download_loop(future_to_metadata, urls, data)
         
     
@@ -178,14 +206,20 @@ def clear_pdfs(set=False): #Function to clear the pdf folder for debugging purpo
 def main():
     global pdf_limiter
     global threads
-    pdf_limiter = None
-    threads = 100
+    global log
+    pdf_limiter = 2000
+    threads = 50
 
-    #clear_pdfs(set=True)
+    clear_pdfs(set=True)
 
     urls, BRNums = get_pdf_urls(excl_path)
     data = download_pdfs(urls, BRNums) 
     write_to_excel(data, data_path)
+
+    with open("error_log.txt", "w") as log_file:
+        for error in log:
+            log_file.write(error + "\n")
+        log_file.close()
 
 
 if __name__ == "__main__":
