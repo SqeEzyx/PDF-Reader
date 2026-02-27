@@ -63,7 +63,7 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
         # Stream the response from requests and write in chunks to avoid blocking on urlopen
         # and to honor the timeout. Use a temporary file and atomic replace to avoid
         # partial files being treated as complete by other threads/processes.
-        response = requests.get(url, timeout=timeout, stream=True)
+        response = requests.get(url, timeout=timeout, stream=True,retries=3)
 
         os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
 
@@ -88,10 +88,8 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
                 existing = log.get(name)
                 entry = f"HTML message: {msg}"
                 if existing:
-                    #print(f"Warning: {name} already has log entry. Appending new message.")
                     log.append(f"{name}: {existing} | {entry}")
                 else:
-                    #print(f"Logging message for {name}: {entry}")
                     log.append(f"{name}: {entry}")
         except Exception:
             # don't fail download on message-extraction errors
@@ -107,8 +105,6 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
         path = final_path
         
         if os.path.getsize(path) < 200000:  # Check if the file is too small to be a valid PDF (heuristic) - 200 KB
-            #log.append(f"Error download {name}: file size: {os.path.getsize(path)} bytes")
-
             os.remove(path)
             os.remove(temp_path)  # Ensure temp file is also removed if it exists
             return None, 0
@@ -127,9 +123,8 @@ def download_single_pdf(url, BRNum):
     #Helper function to download a single PDF (for threading)
     valid_urls = valid_pdf(url)
     if len(valid_urls) == 0:
-        #print(f"{BRNum}: No valid PDF URL found in {url}")
         return None, 0
-    name = BRNum #url.split("/")[-1].split(".pdf")[0]
+    name = BRNum
     
     # Ensure only one thread downloads a particular filename at a time to avoid
     # duplicate downloads when multiple URLs map to the same filename.
@@ -146,10 +141,8 @@ def download_single_pdf(url, BRNum):
     with lock:
         final_path = os.path.join("Pdf", f"{name}.pdf")
         if exist(final_path):
-            #print(f"{BRNum}: PDF already exists, skipping")
             return final_path, 1
 
-        #print(f"Downloading {BRNum} from {url}")
         for valid_url in valid_urls:
             path, status = download_pdf(valid_url, name, 15)
             if status:
@@ -170,11 +163,8 @@ def download_loop(future_to_metadata,urls, data):
                     url = None
                 data.append([BRNum, url, None, "Failed"])
         except Exception as e:
-           #print(f"Error processing {BRNum}: {e}")
             data.append([BRNum, url, None, "Failed"])
-    
-        # Status print
-        #print(f"Progress: {i+1}/{len(urls)} URLs processed. Elapsed: {time.time() - start:.2f}s\n")
+
     return data
 
 def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return their paths and statuses
@@ -183,7 +173,7 @@ def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return 
     global threads
     
     # Use ThreadPoolExecutor for concurrent downloads
-    with ThreadPoolExecutor(max_workers=threads) as executor:  # 20 concurrent threads
+    with ThreadPoolExecutor(max_workers=threads) as executor:  # concurrent threads
         # Create a mapping of future to metadata
         future_to_metadata = {
             executor.submit(download_single_pdf, url, BRNum): (url, BRNum) 
@@ -191,14 +181,13 @@ def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return 
         }
         
         data = download_loop(future_to_metadata, urls, data)
-        
     
     return data
 
 
 ''' EXCEL '''
 
-def excel_stats(data):
+def excel_stats(data): # Expects [BRNum, URL, Path, Status]
     downloaded = sum(1 for item in data if item[3] == "Downloaded")
     failed = sum(1 for item in data if item[3] == "Failed")
     data.append(["Total", None, None, f"Downloaded: {downloaded}, Failed: {failed}, Download Rate: {downloaded/(downloaded+failed)*100:.2f}%"])
@@ -214,7 +203,7 @@ def write_to_excel(data, path): #Function to write the download results to an Ex
     df.to_excel(path, index=False)
 
 
-def clear_pdfs(set): #Function to clear the pdf folder for debugging purposes
+def clear_pdfs(set): #Function to clear the pdf folder
     os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
     if set:
         for file in os.listdir("Pdf"):

@@ -32,14 +32,13 @@ def excel_test(data,path):
 
 
 def main():
-    url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
-    excl = "C:\\Users\\SPAC-O-4\\Documents\\GitHub\\PDF-Reader\\Data\\GRI_2017_2020.xlsx"
+    url = "https://assets.ctfassets.net/5ywmq66472jr/2SPRRF9gZuaMwXJFxKLKKj/573b714e0753db86e0faa86b2218bd5e/GRI_Index_2019.pdf"
+    excl = os.path.join(os.getcwd(), "Data", "GRI_2017_2020.xlsx")
     
     download_pdf_test(url)
     get_pdf_info_test(excl)
-    write_to_excel_test([("dummy", "dummy", "dummy", 1)], "Data\\test.xlsx")
+    write_to_excel_test([("dummy", "dummy", "dummy", "Downloaded")], "Data\\test.xlsx")
     excel_test([["dummy", float('nan'), None, "Failed"]], "Data\\test.xlsx")
-    excel_test([["dummy", "dummy", "dummy", "Downloaded"]], "Data\\test.xlsx")
 
 
 if __name__ == "__main__":

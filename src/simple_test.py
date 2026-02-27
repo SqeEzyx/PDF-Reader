@@ -5,17 +5,9 @@ import requests
 url = "http://www.ablerex.com.tw/ch/CSR/CSR20170911.pdf"
 
 path = "test.pdf"
-try:
-    response = requests.get(url, timeout=15, stream=True)
 
-    with open(path, "wb") as f:
-        f.write(response.content)
+response = requests.get(url, timeout=15, stream=True)
 
-        f.seek(0, os.SEEK_END)
-        file_size = f.tell()
-        print(f"Downloaded file size: {file_size} bytes")
-except Exception as e:
-    print(f"Error downloading {url}: {e}")
 
 # After attempting download (or if file already exists), try to extract an HTML message
 if os.path.exists(path):
