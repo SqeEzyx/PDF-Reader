@@ -15,7 +15,7 @@ pdf_limiter = 0
 threads = 0
 log = []
 
-''' FUNCTIONS '''
+''' FUNCTIONS MISC '''
 def open_pdf(path): #Function to open a PDF file and return its content as bytes
     f = open(path, "rb")
 
@@ -55,7 +55,14 @@ def valid_pdf(urls): #Function to check if a URL is a valid PDF URL
 
     return valid
 
-'''DOWNLOAD'''
+def clear_pdfs(set): #Function to clear the pdf folder
+    os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
+    if set:
+        for file in os.listdir("Pdf"):
+            if file.endswith(".pdf"):
+                os.remove(os.path.join("Pdf", file))
+
+'''DOWNLOAD PDF FUNCTIONS '''
 
 def download_pdf(url,name,timeout): #Function to download a PDF from a URL and save it with the given name, returns the path and status
     global log
@@ -63,7 +70,7 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
         # Stream the response from requests and write in chunks to avoid blocking on urlopen
         # and to honor the timeout. Use a temporary file and atomic replace to avoid
         # partial files being treated as complete by other threads/processes.
-        response = requests.get(url, timeout=timeout, stream=True,retries=3)
+        response = requests.get(url, timeout=timeout, stream=True)
 
         os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
 
@@ -185,7 +192,7 @@ def download_pdfs(urls, BRNums): #Function to download multiple PDFs and return 
     return data
 
 
-''' EXCEL '''
+''' EXCEL FUNCTIONS '''
 
 def excel_stats(data): # Expects [BRNum, URL, Path, Status]
     downloaded = sum(1 for item in data if item[3] == "Downloaded")
@@ -203,22 +210,13 @@ def write_to_excel(data, path): #Function to write the download results to an Ex
     df.to_excel(path, index=False)
 
 
-def clear_pdfs(set): #Function to clear the pdf folder
-    os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
-    if set:
-        for file in os.listdir("Pdf"):
-            if file.endswith(".pdf"):
-                os.remove(os.path.join("Pdf", file))
-
-
-
 ''' MAIN '''
 
 def main():
     global pdf_limiter
     global threads
     global log
-    pdf_limiter = None
+    pdf_limiter = 1000
     threads = 50
 
     clear_pdfs(set=True)
