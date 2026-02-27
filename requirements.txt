@@ -2,3 +2,4 @@ requests
 XlsxWriter
 openpyxl
 pandas
+tqdm

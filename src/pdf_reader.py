@@ -21,6 +21,13 @@ def open_pdf(path): #Function to open a PDF file and return its content as bytes
 
     return f.read()
 
+def limit_length(lst, limit): #Function to limit the length of a list to a specified limit
+    temp_list = []
+    for l in lst:
+        if l is not None and limit > 0:
+            temp_list.append(l[:limit])
+    return temp_list
+
 def get_pdf_urls(path): #Function to read the Excel file and extract PDF URLs, limited by pdf_limiter
     global pdf_limiter
 
@@ -30,16 +37,23 @@ def get_pdf_urls(path): #Function to read the Excel file and extract PDF URLs, l
         pdf_limiter = len(df)
 
     urls = [url for url in df["Pdf_URL"] if url is not None]
-    urls = urls[:pdf_limiter]  # Limit the number of URLs to download
 
-    BRnums = [num for num in df["BRnum"] if num is not None]
-    BRNums = BRnums[:pdf_limiter] # Limit the number of BRNums to download
+    BRNums = [num for num in df["BRnum"] if num is not None]
+    
+    url_sec = [num for num in df["Report Html Address"] if num is not None]
 
-    return urls, BRNums
+    return limit_length([urls, BRNums, url_sec], pdf_limiter)
 
 def exist(path): #Function to check if a file exists at the given path
     return os.path.exists(path)
 
+def valid_pdf(urls): #Function to check if a URL is a valid PDF URL
+    valid = []
+    for url in urls:
+        if url.find(".pdf") != -1 and url.find("http") != -1:
+            valid.append(url)
+
+    return valid
 
 '''DOWNLOAD'''
 
@@ -111,10 +125,10 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
 def download_single_pdf(url, BRNum):
     #Helper function to download a single PDF (for threading)
-    if pd.isna(url) or url.find(".pdf") == -1 or url.find("http") == -1:
-       #print(f"Skipping {url} - invalid PDF URL")
+    valid_urls = valid_pdf(url)
+    if len(valid_urls) == 0:
+        #print(f"{BRNum}: No valid PDF URL found in {url}")
         return None, 0
-    
     name = BRNum #url.split("/")[-1].split(".pdf")[0]
     
     # Ensure only one thread downloads a particular filename at a time to avoid
@@ -136,16 +150,21 @@ def download_single_pdf(url, BRNum):
             return final_path, 1
 
         #print(f"Downloading {BRNum} from {url}")
-        return download_pdf(url, name, 15)
+        for valid_url in valid_urls:
+            path, status = download_pdf(valid_url, name, 15)
+            if status:
+                return path, status, valid_url
+            
+        return None, 0
 
 def download_loop(future_to_metadata,urls, data):
     for i, future in tqdm(enumerate(as_completed(future_to_metadata)),desc='Downloading PDFs', total=len(urls)):
         url, BRNum = future_to_metadata[future]
             
         try:
-            path, status = future.result()
+            path, status, valid_url = future.result()
             if status:
-                data.append([BRNum, url, path, "Downloaded"])
+                data.append([BRNum, valid_url, path, "Downloaded"])
             else:
                 if pd.isna(url):
                     url = None
@@ -195,11 +214,14 @@ def write_to_excel(data, path): #Function to write the download results to an Ex
     df.to_excel(path, index=False)
 
 
-def clear_pdfs(set=False): #Function to clear the pdf folder for debugging purposes
+def clear_pdfs(set): #Function to clear the pdf folder for debugging purposes
+    os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
     if set:
         for file in os.listdir("Pdf"):
             if file.endswith(".pdf"):
                 os.remove(os.path.join("Pdf", file))
+
+
 
 ''' MAIN '''
 
@@ -207,13 +229,16 @@ def main():
     global pdf_limiter
     global threads
     global log
-    pdf_limiter = 2000
+    pdf_limiter = None
     threads = 50
 
     clear_pdfs(set=True)
 
-    urls, BRNums = get_pdf_urls(excl_path)
-    data = download_pdfs(urls, BRNums) 
+    urls, BRNums, url_sec = get_pdf_urls(excl_path)
+
+    all_urls = list(zip(urls, url_sec))
+
+    data = download_pdfs(all_urls, BRNums) 
     write_to_excel(data, data_path)
 
     with open("error_log.txt", "w") as log_file:
