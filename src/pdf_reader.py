@@ -74,20 +74,16 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
         os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
 
-        final_path = os.path.join("Pdf", f"{name}.pdf")
+        path = os.path.join("Pdf", f"{name}.pdf")
 
-        temp_path = final_path + ".part"
-
-        with open(final_path, "wb") as f:
+        with open(path, "wb") as f:
             f.write(response.content)
-
-        path = final_path
         
         return path,1
     
     except Exception as e:
-        print(f"\nError downloading {name}: {e}")
-        os.remove(temp_path)
+        #print(f"\nError downloading {name}: {e}")
+        os.remove(path) if exist(path) else None
 
         log.append(f"Error downloading {name}: {e}")
 
@@ -182,7 +178,7 @@ def main():
     global pdf_limiter
     global threads
     global log
-    pdf_limiter = 50
+    pdf_limiter = 200
     threads = 50
 
     clear_pdfs(set=True)
