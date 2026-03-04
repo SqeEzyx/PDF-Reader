@@ -91,7 +91,7 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
 def download_single_pdf(url, BRNum):
     #Helper function to download a single PDF (for threading)
-    valid_url = url#valid_pdf(url)
+    valid_url = valid_pdf(url)
     if len(valid_url) == 0:
         return None, 0
     name = BRNum
