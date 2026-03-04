@@ -11,8 +11,8 @@ from tqdm import tqdm
 ''' DEFINES '''
 excl_path = os.path.join(os.getcwd(), "Data", "GRI_2017_2020.xlsx")
 data_path = os.path.join(os.getcwd(), "Data", "downloaded_pdfs.xlsx")
-pdf_limiter = 0
-threads = 0
+pdf_limiter = 1000
+threads = 1
 log = []
 
 ''' FUNCTIONS MISC '''
@@ -70,7 +70,7 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
         # Stream the response from requests and write in chunks to avoid blocking on urlopen
         # and to honor the timeout. Use a temporary file and atomic replace to avoid
         # partial files being treated as complete by other threads/processes.
-        response = requests.get(url, timeout=timeout, stream=True)
+        response = requests.get(url, timeout=timeout)
 
         os.makedirs(os.path.join(os.getcwd(), "Pdf"), exist_ok=True)
 
@@ -78,48 +78,15 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
         temp_path = final_path + ".part"
 
-        with open(temp_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-
-        # Check temp file for HTML message markers (some servers return HTML pages)
-        try:
-            with open(temp_path, "rb") as tf:
-                content = tf.read()
-
-            text = content.decode("utf-8", errors="ignore")
-            m = re.search(r'<!--Message-->([^<]*)', text, re.S)
-            if m:
-                msg = m.group(1).strip()
-                existing = log.get(name)
-                entry = f"HTML message: {msg}"
-                if existing:
-                    log.append(f"{name}: {existing} | {entry}")
-                else:
-                    log.append(f"{name}: {entry}")
-        except Exception:
-            # don't fail download on message-extraction errors
-            pass
-
-        # atomic replace
-        try:
-            os.replace(temp_path, final_path)
-        except Exception:
-            # fallback to rename
-            os.rename(temp_path, final_path)
+        with open(final_path, "wb") as f:
+            f.write(response.content)
 
         path = final_path
-        
-        if os.path.getsize(path) < 200000:  # Check if the file is too small to be a valid PDF (heuristic) - 200 KB
-            os.remove(path)
-            os.remove(temp_path)  # Ensure temp file is also removed if it exists
-            return None, 0
         
         return path,1
     
     except Exception as e:
-       #print(f"\nError downloading {name}: {e}")
+        print(f"\nError downloading {name}: {e}")
         os.remove(temp_path)
 
         log.append(f"Error downloading {name}: {e}")
@@ -128,8 +95,8 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
 def download_single_pdf(url, BRNum):
     #Helper function to download a single PDF (for threading)
-    valid_urls = valid_pdf(url)
-    if len(valid_urls) == 0:
+    valid_url = url#valid_pdf(url)
+    if len(valid_url) == 0:
         return None, 0
     name = BRNum
     
@@ -149,12 +116,11 @@ def download_single_pdf(url, BRNum):
         final_path = os.path.join("Pdf", f"{name}.pdf")
         if exist(final_path):
             return final_path, 1
-
-        for valid_url in valid_urls:
-            path, status = download_pdf(valid_url, name, 15)
+        for url in valid_url:
+            path, status = download_pdf(url, name, 15)
             if status:
-                return path, status, valid_url
-            
+                return path, status, url
+
         return None, 0
 
 def download_loop(future_to_metadata,urls, data):
@@ -216,7 +182,7 @@ def main():
     global pdf_limiter
     global threads
     global log
-    pdf_limiter = 1000
+    pdf_limiter = 50
     threads = 50
 
     clear_pdfs(set=True)
