@@ -7,6 +7,8 @@ import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 ''' DEFINES '''
 excl_path = os.path.join(os.getcwd(), "Data", "GRI_2017_2020.xlsx")
@@ -78,7 +80,7 @@ def download_pdf(url,name,timeout): #Function to download a PDF from a URL and s
 
         with open(path, "wb") as f:
             f.write(response.content)
-        
+    
         return path,1
     
     except Exception as e:

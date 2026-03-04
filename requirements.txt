@@ -3,3 +3,4 @@ XlsxWriter
 openpyxl
 pandas
 tqdm
+pypdf
